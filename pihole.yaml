@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pihole
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pihole
+  namespace: pihole
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pihole
+  template:
+    metadata:
+      labels:
+        app: pihole
+    spec:
+      containers:
+        - name: pihole
+          image: pihole/pihole:latest
+          env:
+            - name: TZ
+              value: 'America/Cuiaba'
+            - name: PIHOLE_INTERFACE
+              value: 'eth1'
+            - name: WEBPASSWORD
+              value: 'admin123'
+            - name: PIHOLE_DNS_1
+              value: '1.1.1.1'
+            - name: PIHOLE_DNS_2
+              value: '8.8.8.8'
+            - name: QUERY_LOGGING
+              value: 'true'
+            - name: BLOCKING_ENABLED
+              value: 'true' 
+            - name: DNSMASQ_LISTENING
+              value: 'all' 
+          volumeMounts:
+            - mountPath: /etc/pihole/
+              name: pihole-storage  # Montando o PVC para gravar os dados
+            - mountPath: /mnt/data/pihole
+              name: pihole-storage  # Garantindo que o PVC também esteja em /mnt/data
+      volumes:
+        - name: pihole-storage
+          persistentVolumeClaim:
+            claimName: pihole-pvc  # Referência ao PVC para persistir dados
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole-service
+  namespace: pihole
+spec:
+  selector:
+    app: pihole
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30080
+    - name: dns-udp
+      protocol: UDP
+      port: 53
+      targetPort: 53
+      nodePort: 30053
+    - name: dns-tcp
+      protocol: TCP
+      port: 53
+      targetPort: 53
+      nodePort: 30053
+  externalIPs:
+  - 192.168.1.254
+  type: NodePort
